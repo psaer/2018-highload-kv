@@ -11,10 +11,12 @@ repositories {
 }
 
 dependencies {
-    // https://mvnrepository.com/artifact/org.iq80.leveldb/leveldb
-    compile( "org.iq80.leveldb", "leveldb", "0.7")
+    // Key-value store
+    compile( "org.iq80.leveldb:leveldb:0.10")
 
+    // HTTP server
     compile("ru.odnoklassniki:one-nio:1.0.2")
+
     // Annotations for better code documentation
     compile("com.intellij:annotations:12.0")
 
