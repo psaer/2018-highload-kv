@@ -17,7 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.psaer.Stage_1.KVServiceImpl;
+import ru.mail.polis.psaer.stage1.KVServiceImpl;
 
 import java.io.IOException;
 

@@ -17,7 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.psaer.Stage_1.LevelDBDao;
+import ru.mail.polis.psaer.stage1.LevelDBDao;
 
 import java.io.File;
 import java.io.IOException;

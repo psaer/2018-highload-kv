@@ -1,4 +1,4 @@
-package ru.mail.polis.psaer.Stage_1;
+package ru.mail.polis.psaer.stage1;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
