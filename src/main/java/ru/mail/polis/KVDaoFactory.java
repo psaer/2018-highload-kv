@@ -18,6 +18,7 @@ package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.psaer.stage1.LevelDBDao;
+import ru.mail.polis.psaer.stage1.blockchain.BlockChainDAO;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,5 +56,6 @@ final class KVDaoFactory {
         }
 
         return new LevelDBDao(data);
+        //return new BlockChainDAO();
     }
 }

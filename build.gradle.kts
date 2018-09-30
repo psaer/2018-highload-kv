@@ -11,6 +11,12 @@ repositories {
 }
 
 dependencies {
+    // Old good apache utils
+    compile( "org.apache.commons:commons-lang3:3.3")
+
+    // Ethereum blockchain client
+    compile( "org.web3j:core:3.5.0")
+
     // Key-value store
     compile( "org.iq80.leveldb:leveldb:0.10")
 
