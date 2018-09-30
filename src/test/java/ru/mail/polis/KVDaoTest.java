@@ -23,6 +23,7 @@ import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 
@@ -74,7 +75,7 @@ public class KVDaoTest extends TestBase {
         Assert.assertFalse(Arrays.equals(a1, a2));
 
         // But same strings
-        Assert.assertArrayEquals(new String(a1).getBytes(), new String(a2).getBytes());
+        Assert.assertArrayEquals(new String(a1, StandardCharsets.UTF_8).getBytes(), new String(a2, StandardCharsets.UTF_8).getBytes());
 
         // Put a1 value
         final byte[] value = randomValue();
