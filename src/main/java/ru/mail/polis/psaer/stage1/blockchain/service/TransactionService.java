@@ -36,8 +36,8 @@ public class TransactionService {
     private static final BigInteger GAS_PRICE_GWEI = new BigInteger("10000000000");
     private static final BigInteger METHOD_GAS_LIMIT = new BigInteger("100000");
 
-    private static final long sleepDuration = 1000L;
-    private static final int attempts = 120;
+    private static final long SLEEP_DURATION = 1000L;
+    private static final int ATTEMPTS = 120;
 
     private final Web3j web3j;
     private final Utils utils;
@@ -87,13 +87,13 @@ public class TransactionService {
             throws IOException, TransactionException {
         Optional<TransactionReceipt> receiptOptional = this.sendTransactionReceiptRequest(transactionHash);
 
-        for(int i = 0; i < attempts; ++i) {
+        for(int i = 0; i < ATTEMPTS; ++i) {
             if (receiptOptional.isPresent()) {
                 return (TransactionReceipt)receiptOptional.get();
             }
 
             try {
-                Thread.sleep(sleepDuration);
+                Thread.sleep(SLEEP_DURATION);
             } catch (InterruptedException var8) {
                 throw new TransactionException(var8);
             }
@@ -101,7 +101,7 @@ public class TransactionService {
             receiptOptional = this.sendTransactionReceiptRequest(transactionHash);
         }
 
-        throw new TransactionException("Transaction receipt was not generated after " + sleepDuration * (long)attempts / 1000L + " seconds for transaction: " + transactionHash);
+        throw new TransactionException("Transaction receipt was not generated after " + SLEEP_DURATION * (long) ATTEMPTS / 1000L + " seconds for transaction: " + transactionHash);
     }
 
     private Optional<TransactionReceipt> sendTransactionReceiptRequest(@NotNull String transactionHash) throws IOException, TransactionException {

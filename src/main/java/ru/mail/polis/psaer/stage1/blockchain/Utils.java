@@ -16,7 +16,9 @@ public class Utils {
     private static final String OWNER_WALLET_FILE_PREFIX = "eth-wallet-json";
     private static final String EMPTY_STRING = "";
 
-    private static final String ZERO_BYTE_FILLER = "00000000000000000000000000000000";
+    private static final Integer DEFAULT_KEY_LENGTH = 16;
+
+    private static final String ZERO_BYTE_FILLER = "0";
 
     public static List<Type> getPreparedFunctionInputs(@NotNull List<FunctionParamDTO> rawParams) throws IOException {
         List<Type> inputParams = new ArrayList();
@@ -56,24 +58,28 @@ public class Utils {
     }
 
     private static Type determineByteParam(@NotNull byte[] value) throws IOException {
-        switch (value.length){
+        switch (value.length) {
             case 0:
                 /* HACK for 'emptyValue' test */
-                return new org.web3j.abi.datatypes.generated.Bytes32(ZERO_BYTE_FILLER.getBytes());
+                return new org.web3j.abi.datatypes.generated.Bytes32(getNZeroByteArray(32));
             case 16:
-                return new org.web3j.abi.datatypes.generated.Bytes16((byte[]) value);
+                return new org.web3j.abi.datatypes.generated.Bytes16(value);
             case 32:
-                return new org.web3j.abi.datatypes.generated.Bytes32((byte[]) value);
+                return new org.web3j.abi.datatypes.generated.Bytes32(value);
             default:
+                if (value.length > DEFAULT_KEY_LENGTH)
+                    throw new IOException("Unsupported byte param length");
+
                 /* HACK for 'nonHash', 'nonUnicode', 'deleteAbsent', 'getAbsent', 'badRequest' tests */
-                return new org.web3j.abi.datatypes.generated.Bytes16((byte[])ArrayUtils.addAll(getNZeroByteArray(16-value.length), (byte[]) value));
+                return new org.web3j.abi.datatypes.generated.Bytes16(
+                        ArrayUtils.addAll(getNZeroByteArray(DEFAULT_KEY_LENGTH - value.length), value));
         }
     }
 
-    private static byte[] getNZeroByteArray(@NotNull int n){
+    private static byte[] getNZeroByteArray(@NotNull int n) {
         StringBuilder sb = new StringBuilder();
-        for(int i=0;i<n;i++){
-            sb.append("0");
+        for (int i = 0; i < n; i++) {
+            sb.append(ZERO_BYTE_FILLER);
         }
         return sb.toString().getBytes();
     }
