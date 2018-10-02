@@ -10,6 +10,11 @@ import ru.mail.polis.KVService;
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
+/**
+ * Implementation of {@link KVService} interface using one-nio http server
+ *
+ * @author Denis Kruminsh <ipsaer@gmail.com>
+ */
 public class KVServiceImpl extends HttpServer implements KVService {
 
     private static final String INTERNAL_ERROR_MESSAGE = "Server problem";

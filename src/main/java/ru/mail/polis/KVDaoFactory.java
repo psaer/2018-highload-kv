@@ -17,8 +17,7 @@
 package ru.mail.polis;
 
 import org.jetbrains.annotations.NotNull;
-import ru.mail.polis.psaer.stage1.LevelDBDao;
-import ru.mail.polis.psaer.stage1.blockchain.BlockChainDAO;
+import ru.mail.polis.psaer.stage1.KVDaoImpl;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,7 +54,6 @@ final class KVDaoFactory {
             throw new IllegalArgumentException("Path is not a directory: " + data);
         }
 
-        return new LevelDBDao(data);
-        //return new BlockChainDAO();
+        return new KVDaoImpl(data);
     }
 }

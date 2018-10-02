@@ -11,12 +11,17 @@ import org.iq80.leveldb.*;
 
 import static org.iq80.leveldb.impl.Iq80DBFactory.*;
 
-public class LevelDBDao implements KVDao {
+/**
+ * Level DB implementation of {@link KVDao} interface
+ *
+ * @author Denis Kruminsh <ipsaer@gmail.com>
+ */
+public class KVDaoImpl implements KVDao {
 
     @NotNull
     private final DB db;
 
-    public LevelDBDao(@NotNull File base) throws IOException {
+    public KVDaoImpl(@NotNull File base) throws IOException {
         this.db = factory.open(base, getOptions());
     }
 
