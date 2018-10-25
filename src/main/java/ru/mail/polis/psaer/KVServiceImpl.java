@@ -1,4 +1,4 @@
-package ru.mail.polis.psaer.stage1;
+package ru.mail.polis.psaer;
 
 import one.nio.http.*;
 import one.nio.server.AcceptorConfig;

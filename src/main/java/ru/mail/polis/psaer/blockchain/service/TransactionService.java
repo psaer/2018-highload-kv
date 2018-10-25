@@ -1,4 +1,4 @@
-package ru.mail.polis.psaer.stage1.blockchain.service;
+package ru.mail.polis.psaer.blockchain.service;
 
 import org.jetbrains.annotations.NotNull;
 import org.web3j.abi.FunctionEncoder;
@@ -11,8 +11,8 @@ import org.web3j.protocol.core.methods.response.*;
 import org.web3j.protocol.exceptions.TransactionException;
 import org.web3j.protocol.http.HttpService;
 import org.web3j.utils.Numeric;
-import ru.mail.polis.psaer.stage1.blockchain.Utils;
-import ru.mail.polis.psaer.stage1.blockchain.dto.FunctionParamDTO;
+import ru.mail.polis.psaer.blockchain.Utils;
+import ru.mail.polis.psaer.blockchain.dto.FunctionParamDTO;
 
 import java.io.File;
 import java.io.IOException;

@@ -1,9 +1,9 @@
-package ru.mail.polis.psaer.stage1.blockchain;
+package ru.mail.polis.psaer.blockchain;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 import org.web3j.abi.datatypes.Type;
-import ru.mail.polis.psaer.stage1.blockchain.dto.FunctionParamDTO;
+import ru.mail.polis.psaer.blockchain.dto.FunctionParamDTO;
 
 import java.io.File;
 import java.io.IOException;

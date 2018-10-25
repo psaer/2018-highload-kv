@@ -1,9 +1,9 @@
-package ru.mail.polis.psaer.stage1.blockchain;
+package ru.mail.polis.psaer.blockchain;
 
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
-import ru.mail.polis.psaer.stage1.blockchain.dto.FunctionParamDTO;
-import ru.mail.polis.psaer.stage1.blockchain.service.TransactionService;
+import ru.mail.polis.psaer.blockchain.dto.FunctionParamDTO;
+import ru.mail.polis.psaer.blockchain.service.TransactionService;
 
 import java.io.IOException;
 import java.util.ArrayList;

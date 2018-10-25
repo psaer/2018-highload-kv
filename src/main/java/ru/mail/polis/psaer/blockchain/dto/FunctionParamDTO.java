@@ -1,4 +1,4 @@
-package ru.mail.polis.psaer.stage1.blockchain.dto;
+package ru.mail.polis.psaer.blockchain.dto;
 
 public class FunctionParamDTO {
 
