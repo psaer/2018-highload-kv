@@ -6,9 +6,16 @@ import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
 import ru.mail.polis.KVService;
+import ru.mail.polis.psaer.dto.RequestHandleDTO;
+import ru.mail.polis.psaer.exceptions.ReplicaParamsException;
+import ru.mail.polis.psaer.requestHandlers.AbstractHandler;
+import ru.mail.polis.psaer.requestHandlers.DeleteHandler;
+import ru.mail.polis.psaer.requestHandlers.GetHandler;
+import ru.mail.polis.psaer.requestHandlers.PutHandler;
 
 import java.io.IOException;
-import java.util.NoSuchElementException;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Implementation of {@link KVService} interface using one-nio http server
@@ -17,23 +24,35 @@ import java.util.NoSuchElementException;
  */
 public class KVServiceImpl extends HttpServer implements KVService {
 
-    private static final String INTERNAL_ERROR_MESSAGE = "Server problem";
-
     private static final String DEFAULT_PATH = "/v0/entity";
     private static final String STATUS_POINT = "/v0/status";
+
+    private static final String REPLICA_PATH = "http://localhost:";
+
+    @NotNull
+    private final String myReplicaHost;
+
+    @NotNull
+    private Set<String> replicas;
 
     @NotNull
     private final Logger logger;
 
     @NotNull
-    private final KVDao dao;
+    private final KVDaoImpl dao;
 
     public KVServiceImpl(
             final int port,
-            @NotNull final KVDao dao) throws IOException {
+            @NotNull final KVDao dao,
+            @NotNull Set<String> replicas) throws IOException {
         super(from(port));
-        this.dao = dao;
+        this.dao = (KVDaoImpl) dao;
         this.logger = Logger.getLogger(KVServiceImpl.class);
+
+        this.myReplicaHost = REPLICA_PATH + port;
+
+        this.replicas = new HashSet<>(replicas);
+        this.replicas.remove(this.myReplicaHost);
     }
 
     @Path(STATUS_POINT)
@@ -46,60 +65,53 @@ public class KVServiceImpl extends HttpServer implements KVService {
             @NotNull final Request request,
             @NotNull final HttpSession session
     ) throws IOException {
-        if (!request.getPath().equals(DEFAULT_PATH)) {
+        try {
+            checkRequiredRequestParams(request);
+        } catch (ReplicaParamsException e) {
+            logger.error(e.getMessage(), e);
             session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
             return;
         }
+
+        RequestHandleDTO requestHandleDTO = new RequestHandleDTO()
+                .setDao(this.dao)
+                .setMyReplicaHost(this.myReplicaHost)
+                .setReplicasHosts(this.replicas)
+                .setRequest(request)
+                .setHttpSession(session);
+
+        AbstractHandler handler;
+
+        try {
+            switch (request.getMethod()) {
+                case Request.METHOD_GET:
+                    handler = new GetHandler(requestHandleDTO);
+                    break;
+                case Request.METHOD_PUT:
+                    handler = new PutHandler(requestHandleDTO);
+                    break;
+                case Request.METHOD_DELETE:
+                    handler = new DeleteHandler(requestHandleDTO);
+                    break;
+                default:
+                    session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
+                    return;
+            }
+            handler.handle();
+        } catch (ReplicaParamsException e) {
+            logger.error(e.getMessage(), e);
+            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+        }
+    }
+
+    private void checkRequiredRequestParams(@NotNull Request request) throws ReplicaParamsException {
+        if (!request.getPath().equals(DEFAULT_PATH)) {
+            throw new ReplicaParamsException("Invalid path");
+        }
+
         final String id = request.getParameter("id=");
         if (id == null || id.isEmpty()) {
-            session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
-            return;
-        }
-
-        switch (request.getMethod()) {
-            case Request.METHOD_GET:
-                handleGetRequest(id, session);
-                break;
-            case Request.METHOD_PUT:
-                handlePutRequest(id, request, session);
-                break;
-            case Request.METHOD_DELETE:
-                handleDeleteRequest(id, session);
-                break;
-            default:
-                session.sendResponse(new Response(Response.METHOD_NOT_ALLOWED, Response.EMPTY));
-        }
-    }
-
-    private void handleGetRequest(String id, HttpSession session) throws IOException {
-        try {
-            final byte[] value = dao.get(id.getBytes());
-            session.sendResponse(Response.ok(value));
-        } catch (NoSuchElementException e) {
-            session.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
-        } catch (Exception e) {
-            logger.error("Can't handle GET request", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, INTERNAL_ERROR_MESSAGE.getBytes()));
-        }
-    }
-
-    private void handlePutRequest(String id, Request request, HttpSession session) throws IOException {
-        try {
-            dao.upsert(id.getBytes(), request.getBody());
-            session.sendResponse(new Response(Response.CREATED, Response.EMPTY));
-        } catch (Exception e) {
-            logger.error("Can't handle PUT request", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, INTERNAL_ERROR_MESSAGE.getBytes()));
-        }
-    }
-
-    private void handleDeleteRequest(String id, HttpSession session) throws IOException {
-        try {
-            dao.remove(id.getBytes());
-            session.sendResponse(new Response(Response.ACCEPTED, Response.EMPTY));
-        } catch (Exception e) {
-            logger.error("Can't handle DELETE request", e);
-            session.sendResponse(new Response(Response.INTERNAL_ERROR, INTERNAL_ERROR_MESSAGE.getBytes()));
+            throw new ReplicaParamsException("Required id param not found");
         }
     }
 
