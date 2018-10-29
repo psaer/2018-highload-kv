@@ -57,7 +57,7 @@ public class KVServiceImpl extends HttpServer implements KVService {
 
     @Path(STATUS_POINT)
     public Response status() {
-        return Response.ok("I'm OK");
+        return Response.ok("I am OK");
     }
 
     @Override
