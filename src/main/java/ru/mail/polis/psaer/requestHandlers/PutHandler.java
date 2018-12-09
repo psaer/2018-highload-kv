@@ -3,7 +3,6 @@ package ru.mail.polis.psaer.requestHandlers;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.apache.log4j.Logger;
 import org.iq80.leveldb.DBException;
@@ -17,6 +16,7 @@ import ru.mail.polis.psaer.exceptions.ReplicaParamsException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static ru.mail.polis.psaer.Constants.*;
 
@@ -75,23 +75,19 @@ public class PutHandler extends AbstractHandler {
         List<ReplicaAnswerResultDTO> results = new ArrayList<>();
         results.add(upsertIntoCurrentNode(timestamp));
 
-        for (String replicaHost : replicasHosts) {
+        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
             if (this.successAnswers >= this.replicaParamsDTO.getFrom()) {
                 break;
             }
 
-            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaHost);
-
-            HttpClient httpClient = new HttpClient(
-                    new ConnectionString(replicaHost)
-            );
+            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
 
             String[] headers = new String[2];
             headers[0] = HEADER_VALUE_TIMESTAMP + timestamp;
             headers[1] = HEADER_REPLICA_REQUEST + true;
 
             try {
-                Response response = httpClient.put(
+                Response response = replicaEntry.getValue().put(
                         request.getURI(),
                         request.getBody(),
                         headers

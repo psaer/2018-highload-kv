@@ -15,10 +15,7 @@ import ru.mail.polis.psaer.dto.RequestHandleDTO;
 import ru.mail.polis.psaer.exceptions.ReplicaParamsException;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import static ru.mail.polis.psaer.Constants.*;
 
@@ -89,22 +86,18 @@ public class GetHandler extends AbstractHandler {
         List<ReplicaAnswerResultDTO> results = new ArrayList<>();
         results.add(getFromCurrentNode(id.getBytes()));
 
-        for (String replicaHost : replicasHosts) {
+        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
             if (this.successAnswers >= this.replicaParamsDTO.getFrom()) {
                 break;
             }
 
-            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaHost);
-
-            HttpClient httpClient = new HttpClient(
-                    new ConnectionString(replicaHost)
-            );
+            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
 
             String[] headers = new String[1];
             headers[0] = HEADER_REPLICA_REQUEST + true;
 
             try {
-                Response response = httpClient.get(
+                Response response = replicaEntry.getValue().get(
                         request.getURI(),
                         headers
                 );

@@ -17,6 +17,7 @@ import ru.mail.polis.psaer.exceptions.ReplicaParamsException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static ru.mail.polis.psaer.Constants.*;
 
@@ -75,23 +76,19 @@ public class DeleteHandler extends AbstractHandler {
         List<ReplicaAnswerResultDTO> results = new ArrayList<>();
         results.add(removeFromCurrentNode(timestamp));
 
-        for (String replicaHost : replicasHosts) {
+        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
             if (this.successAnswers >= this.replicaParamsDTO.getFrom()) {
                 break;
             }
 
-            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaHost);
-
-            HttpClient httpClient = new HttpClient(
-                    new ConnectionString(replicaHost)
-            );
+            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
 
             String[] headers = new String[2];
             headers[0] = HEADER_VALUE_TIMESTAMP + timestamp;
             headers[1] = HEADER_REPLICA_REQUEST + true;
 
             try {
-                Response response = httpClient.delete(
+                Response response = replicaEntry.getValue().delete(
                         request.getURI(),
                         headers
                 );

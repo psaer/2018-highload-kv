@@ -1,11 +1,12 @@
 package ru.mail.polis.psaer.dto;
 
+import one.nio.http.HttpClient;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.psaer.KVDaoImpl;
 
-import java.util.Set;
+import java.util.Map;
 
 public class RequestHandleDTO {
 
@@ -16,7 +17,7 @@ public class RequestHandleDTO {
     private String myReplicaHost;
 
     @NotNull
-    private Set<String> replicasHosts;
+    private Map<String, HttpClient> replicasHosts;
 
     @NotNull
     private Request request;
@@ -45,11 +46,11 @@ public class RequestHandleDTO {
     }
 
     @NotNull
-    public Set<String> getReplicasHosts() {
+    public Map<String, HttpClient>getReplicasHosts() {
         return replicasHosts;
     }
 
-    public RequestHandleDTO setReplicasHosts(@NotNull Set<String> replicasHosts) {
+    public RequestHandleDTO setReplicasHosts(@NotNull Map<String, HttpClient>replicasHosts) {
         this.replicasHosts = replicasHosts;
         return this;
     }

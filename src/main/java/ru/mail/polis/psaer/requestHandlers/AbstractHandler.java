@@ -1,5 +1,6 @@
 package ru.mail.polis.psaer.requestHandlers;
 
+import one.nio.http.HttpClient;
 import one.nio.http.HttpSession;
 import one.nio.http.Request;
 import one.nio.http.Response;
@@ -23,7 +24,7 @@ public abstract class AbstractHandler {
     protected String myReplicaHost;
 
     @NotNull
-    protected Set<String> replicasHosts;
+    protected Map<String, HttpClient> replicasHosts;
 
     @NotNull
     protected Request request;

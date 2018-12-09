@@ -1,6 +1,8 @@
 package ru.mail.polis.psaer;
 
 import one.nio.http.*;
+import one.nio.http.HttpClient;
+import one.nio.net.ConnectionString;
 import one.nio.server.AcceptorConfig;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -13,9 +15,10 @@ import ru.mail.polis.psaer.requestHandlers.DeleteHandler;
 import ru.mail.polis.psaer.requestHandlers.GetHandler;
 import ru.mail.polis.psaer.requestHandlers.PutHandler;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+
+import java.io.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of {@link KVService} interface using one-nio http server
@@ -24,16 +27,13 @@ import java.util.Set;
  */
 public class KVServiceImpl extends HttpServer implements KVService {
 
-    private static final String DEFAULT_PATH = "/v0/entity";
-    private static final String STATUS_POINT = "/v0/status";
-
     private static final String REPLICA_PATH = "http://localhost:";
 
     @NotNull
     private final String myReplicaHost;
 
     @NotNull
-    private Set<String> replicas;
+    private Map<String, HttpClient> replicas;
 
     @NotNull
     private final Logger logger;
@@ -45,25 +45,25 @@ public class KVServiceImpl extends HttpServer implements KVService {
             final int port,
             @NotNull final KVDao dao,
             @NotNull Set<String> replicas) throws IOException {
-        super(from(port));
+        super(getConfig(port));
         this.dao = (KVDaoImpl) dao;
         this.logger = Logger.getLogger(KVServiceImpl.class);
-
         this.myReplicaHost = REPLICA_PATH + port;
-
-        this.replicas = new HashSet<>(replicas);
-        this.replicas.remove(this.myReplicaHost);
+        this.replicas = replicas.stream().collect(Collectors.toMap(
+                o -> o,
+                o -> new HttpClient(new ConnectionString(o))));
+        this.replicas.remove(myReplicaHost);
     }
 
-    @Path(STATUS_POINT)
+    @Path("/v0/status")
     public Response status() {
         return Response.ok("I am OK");
     }
 
-    @Override
-    public void handleDefault(
-            @NotNull final Request request,
-            @NotNull final HttpSession session
+    @Path("/v0/entity")
+    public void entity(
+            Request request,
+            HttpSession session
     ) throws IOException {
         try {
             checkRequiredRequestParams(request);
@@ -104,23 +104,26 @@ public class KVServiceImpl extends HttpServer implements KVService {
         }
     }
 
-    private void checkRequiredRequestParams(@NotNull Request request) throws ReplicaParamsException {
-        if (!request.getPath().equals(DEFAULT_PATH)) {
-            throw new ReplicaParamsException("Invalid path");
-        }
+    @Override
+    public void handleDefault(
+            @NotNull final Request request,
+            @NotNull final HttpSession session
+    ) throws IOException {
+        session.sendResponse(new Response(Response.BAD_REQUEST, Response.EMPTY));
+    }
 
+    private static HttpServerConfig getConfig(final int port) {
+        AcceptorConfig ac = new AcceptorConfig();
+        HttpServerConfig config = new HttpServerConfig();
+        ac.port = port;
+        config.acceptors = new AcceptorConfig[]{ac};
+        return config;
+    }
+
+    private void checkRequiredRequestParams(@NotNull Request request) throws ReplicaParamsException {
         final String id = request.getParameter("id=");
         if (id == null || id.isEmpty()) {
             throw new ReplicaParamsException("Required id param not found");
         }
-    }
-
-    private static HttpServerConfig from(final int port) {
-        final AcceptorConfig ac = new AcceptorConfig();
-        ac.port = port;
-
-        HttpServerConfig config = new HttpServerConfig();
-        config.acceptors = new AcceptorConfig[]{ac};
-        return config;
     }
 }
