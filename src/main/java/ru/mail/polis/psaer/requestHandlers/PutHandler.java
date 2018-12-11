@@ -15,8 +15,10 @@ import ru.mail.polis.psaer.exceptions.ReplicaParamsException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Future;
 
 import static ru.mail.polis.psaer.Constants.*;
 
@@ -26,12 +28,12 @@ public class PutHandler extends AbstractHandler {
     private final Logger logger;
 
     @NotNull
-    private Integer successAnswers;
+    private Integer answers;
 
     public PutHandler(@NotNull RequestHandleDTO requestHandleDTO) throws ReplicaParamsException {
         super(requestHandleDTO);
         this.logger = Logger.getLogger(PutHandler.class);
-        this.successAnswers = 0;
+        this.answers = 0;
     }
 
     @Override
@@ -75,46 +77,60 @@ public class PutHandler extends AbstractHandler {
         List<ReplicaAnswerResultDTO> results = new ArrayList<>();
         results.add(upsertIntoCurrentNode(timestamp));
 
-        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
-            if (this.successAnswers >= this.replicaParamsDTO.getFrom()) {
-                break;
-            }
-
-            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
-
-            String[] headers = new String[2];
-            headers[0] = HEADER_VALUE_TIMESTAMP + timestamp;
-            headers[1] = HEADER_REPLICA_REQUEST + true;
-
+        List<Future<ReplicaAnswerResultDTO>> futureNodeAnswers = requestForFutureWork(timestamp);
+        for (Future<ReplicaAnswerResultDTO> replicaAnswerResultDTOFuture : futureNodeAnswers) {
             try {
-                Response response = replicaEntry.getValue().put(
-                        request.getURI(),
-                        request.getBody(),
-                        headers
-                );
-
-                result.workingReplica();
-
-                switch (response.getStatus()) {
-                    case STATUS_SUCCESS_PUT:
-                        result.successOperation();
-                        this.successAnswers++;
-                        break;
-                }
-            } catch (InterruptedException | HttpException | IOException | PoolException e) {
-                logger.error(e.getMessage(), e);
-            } finally {
-                results.add(result);
+                results.add(replicaAnswerResultDTOFuture.get());
+            }catch (Exception ex){
+                logger.error(ex.getMessage(), ex);
             }
         }
 
         ReplicaAnswerResultsDTO replicaAnswerResultsDTO = new ReplicaAnswerResultsDTO(results);
-
         if (replicaAnswerResultsDTO.getSuccessOperations() < replicaParamsDTO.getAck()) {
             httpSession.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         } else {
             httpSession.sendResponse(new Response(Response.CREATED, Response.EMPTY));
         }
+    }
+
+    private List<Future<ReplicaAnswerResultDTO>> requestForFutureWork(long timestamp){
+        List<Future<ReplicaAnswerResultDTO>> answerList = new LinkedList<>();
+        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
+            if (this.answers >= this.replicaParamsDTO.getFrom()) {
+                break;
+            }
+
+            String[] headers = new String[2];
+            headers[0] = HEADER_VALUE_TIMESTAMP + timestamp;
+            headers[1] = HEADER_REPLICA_REQUEST + true;
+
+            Future<ReplicaAnswerResultDTO> replicaAnswerResultDTOFuture = threadPool.submit(() ->{
+                ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
+
+                try {
+                    Response response = replicaEntry.getValue().put(
+                            request.getURI(),
+                            request.getBody(),
+                            headers
+                    );
+
+                    result.workingReplica();
+
+                    switch (response.getStatus()) {
+                        case STATUS_SUCCESS_PUT:
+                            result.successOperation();
+                            break;
+                    }
+                } catch (InterruptedException | HttpException | IOException | PoolException e) {
+                    logger.error(e.getMessage(), e);
+                }
+                return result;
+            });
+            answerList.add(replicaAnswerResultDTOFuture);
+            this.answers++;
+        }
+        return answerList;
     }
 
     private ReplicaAnswerResultDTO upsertIntoCurrentNode(long timestamp) {
@@ -125,7 +141,7 @@ public class PutHandler extends AbstractHandler {
 
             result.workingReplica();
             result.successOperation();
-            this.successAnswers++;
+            this.answers++;
         } catch (IOException e) {
             result.badArgument();
             logger.error(e.getMessage(), e);

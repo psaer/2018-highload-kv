@@ -14,6 +14,8 @@ import ru.mail.polis.psaer.service.QueryParamsService;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public abstract class AbstractHandler {
 
@@ -39,6 +41,8 @@ public abstract class AbstractHandler {
     protected final ReplicaParamsDTO replicaParamsDTO;
 
     protected final boolean requestFromReplica;
+
+    protected static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     public AbstractHandler(@NotNull RequestHandleDTO requestHandleDTO) throws ReplicaParamsException {
         this.dao = requestHandleDTO.getDao();

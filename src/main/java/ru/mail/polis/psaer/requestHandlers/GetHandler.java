@@ -3,7 +3,6 @@ package ru.mail.polis.psaer.requestHandlers;
 import one.nio.http.HttpClient;
 import one.nio.http.HttpException;
 import one.nio.http.Response;
-import one.nio.net.ConnectionString;
 import one.nio.pool.PoolException;
 import org.apache.log4j.Logger;
 import org.iq80.leveldb.DBException;
@@ -16,6 +15,7 @@ import ru.mail.polis.psaer.exceptions.ReplicaParamsException;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.Future;
 
 import static ru.mail.polis.psaer.Constants.*;
 
@@ -25,14 +25,14 @@ public class GetHandler extends AbstractHandler {
     private final Logger logger;
 
     @NotNull
-    private Integer successAnswers;
+    private Integer answers;
 
     private static String[] replicaRequestHeaders;
 
     public GetHandler(@NotNull RequestHandleDTO requestHandleDTO) throws ReplicaParamsException {
         super(requestHandleDTO);
         this.logger = Logger.getLogger(GetHandler.class);
-        this.successAnswers = 0;
+        this.answers = 0;
 
         this.replicaRequestHeaders = new String[1];
         this.replicaRequestHeaders[0] = HEADER_REPLICA_REQUEST + true;
@@ -91,43 +91,14 @@ public class GetHandler extends AbstractHandler {
         List<ReplicaAnswerResultDTO> results = new ArrayList<>();
         ReplicaAnswerResultDTO currentNodeResult = getFromCurrentNode(id.getBytes());
         Long currentNodeTimestamp = currentNodeResult.getValueTimestamp();
-
         results.add(currentNodeResult);
 
-        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
-            if (this.successAnswers >= this.replicaParamsDTO.getFrom()) {
-                break;
-            }
-
-            ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
-
+        List<Future<ReplicaAnswerResultDTO>> futureNodeAnswers = requestForFutureWork();
+        for (Future<ReplicaAnswerResultDTO> replicaAnswerResultDTOFuture : futureNodeAnswers) {
             try {
-                Response response = replicaEntry.getValue().get(
-                        request.getURI(),
-                        replicaRequestHeaders
-                );
-
-                result.workingReplica();
-                result.successOperation();
-
-                switch (response.getStatus()) {
-                    case STATUS_OK:
-                        result.setValueTimestamp(getTimestampFromResponse(response));
-                        result.setDeleted(isValueRemoved(response));
-                        break;
-                    case STATUS_BAD_ARGUMENT:
-                        result.badArgument();
-                        break;
-                    case STATUS_NOT_FOUND:
-                        result.notFound();
-                        break;
-                }
-
-            } catch (InterruptedException | HttpException | IOException | PoolException e) {
-                logger.error(e.getMessage(), e);
-            } finally {
-                results.add(result);
-                this.successAnswers++;
+                results.add(replicaAnswerResultDTOFuture.get());
+            }catch (Exception ex){
+                logger.error(ex.getMessage(), ex);
             }
         }
 
@@ -138,6 +109,48 @@ public class GetHandler extends AbstractHandler {
         } else {
             chooseValueAndResponse(results, currentNodeTimestamp);
         }
+    }
+
+    private List<Future<ReplicaAnswerResultDTO>> requestForFutureWork(){
+        List<Future<ReplicaAnswerResultDTO>> answerList = new LinkedList<>();
+        for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
+            if (this.answers >= this.replicaParamsDTO.getFrom()) {
+                break;
+            }
+
+            Future<ReplicaAnswerResultDTO> replicaAnswerResultDTOFuture = threadPool.submit(() ->{
+                ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
+
+                try {
+                    Response response = replicaEntry.getValue().get(
+                            request.getURI(),
+                            replicaRequestHeaders
+                    );
+
+                    result.workingReplica();
+                    result.successOperation();
+
+                    switch (response.getStatus()) {
+                        case STATUS_OK:
+                            result.setValueTimestamp(getTimestampFromResponse(response));
+                            result.setDeleted(isValueRemoved(response));
+                            break;
+                        case STATUS_BAD_ARGUMENT:
+                            result.badArgument();
+                            break;
+                        case STATUS_NOT_FOUND:
+                            result.notFound();
+                            break;
+                    }
+                } catch (InterruptedException | HttpException | IOException | PoolException e) {
+                    logger.error(e.getMessage(), e);
+                }
+                return result;
+            });
+            answerList.add(replicaAnswerResultDTOFuture);
+            this.answers++;
+        }
+        return answerList;
     }
 
     private void chooseValueAndResponse(List<ReplicaAnswerResultDTO> results, Long currentNodeTimestamp) throws IOException {
@@ -190,12 +203,12 @@ public class GetHandler extends AbstractHandler {
             if (daoValue.getState() == DaoValue.State.REMOVED) {
                 result.setDeleted(true);
             }
-            this.successAnswers++;
+            this.answers++;
         } catch (NoSuchElementException e) {
             result.workingReplica();
             result.successOperation();
             result.notFound();
-            this.successAnswers++;
+            this.answers++;
         } catch (IOException e) {
             result.badArgument();
             logger.error(e.getMessage(), e);
