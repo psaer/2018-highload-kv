@@ -27,10 +27,15 @@ public class GetHandler extends AbstractHandler {
     @NotNull
     private Integer successAnswers;
 
+    private static String[] replicaRequestHeaders;
+
     public GetHandler(@NotNull RequestHandleDTO requestHandleDTO) throws ReplicaParamsException {
         super(requestHandleDTO);
         this.logger = Logger.getLogger(GetHandler.class);
         this.successAnswers = 0;
+
+        this.replicaRequestHeaders = new String[1];
+        this.replicaRequestHeaders[0] = HEADER_REPLICA_REQUEST + true;
     }
 
     @Override
@@ -84,7 +89,10 @@ public class GetHandler extends AbstractHandler {
 
     private void multipleNodeHandle() throws IOException {
         List<ReplicaAnswerResultDTO> results = new ArrayList<>();
-        results.add(getFromCurrentNode(id.getBytes()));
+        ReplicaAnswerResultDTO currentNodeResult = getFromCurrentNode(id.getBytes());
+        Long currentNodeTimestamp = currentNodeResult.getValueTimestamp();
+
+        results.add(currentNodeResult);
 
         for (Map.Entry<String, HttpClient> replicaEntry : replicasHosts.entrySet()) {
             if (this.successAnswers >= this.replicaParamsDTO.getFrom()) {
@@ -93,18 +101,14 @@ public class GetHandler extends AbstractHandler {
 
             ReplicaAnswerResultDTO result = new ReplicaAnswerResultDTO(replicaEntry.getKey());
 
-            String[] headers = new String[1];
-            headers[0] = HEADER_REPLICA_REQUEST + true;
-
             try {
                 Response response = replicaEntry.getValue().get(
                         request.getURI(),
-                        headers
+                        replicaRequestHeaders
                 );
 
                 result.workingReplica();
                 result.successOperation();
-                this.successAnswers++;
 
                 switch (response.getStatus()) {
                     case STATUS_OK:
@@ -123,6 +127,7 @@ public class GetHandler extends AbstractHandler {
                 logger.error(e.getMessage(), e);
             } finally {
                 results.add(result);
+                this.successAnswers++;
             }
         }
 
@@ -131,34 +136,30 @@ public class GetHandler extends AbstractHandler {
         if (replicaAnswerResultsDTO.getWorkingReplicas() < replicaParamsDTO.getAck()) {
             httpSession.sendResponse(new Response(Response.GATEWAY_TIMEOUT, Response.EMPTY));
         } else {
-            chooseValueAndResponse(results);
+            chooseValueAndResponse(results, currentNodeTimestamp);
         }
     }
 
-    private void chooseValueAndResponse(List<ReplicaAnswerResultDTO> results) throws IOException {
+    private void chooseValueAndResponse(List<ReplicaAnswerResultDTO> results, Long currentNodeTimestamp) throws IOException {
         results.sort(Comparator.comparingLong(ReplicaAnswerResultDTO::getValueTimestamp));
+        ReplicaAnswerResultDTO bestResult = results.get(results.size() - 1);
 
-        if (results.get(results.size() - 1).isDeleted()) {
+        if (bestResult.isDeleted()) {
             httpSession.sendResponse(new Response(Response.NOT_FOUND, Response.EMPTY));
             return;
         }
 
-        String replicaHost = results.get(results.size() - 1).getReplicaHost();
-
-        if (replicaHost.equalsIgnoreCase(myReplicaHost)) {
+        if (bestResult.getValueTimestamp() == currentNodeTimestamp) {
             singleNodeHandle();
+            return;
         } else {
             String[] headers = new String[2];
             headers[0] = HEADER_REPLICA_REQUEST + true;
             headers[1] = HEADER_REPLICA_REQUEST_FOR_VALUE + true;
 
-            HttpClient httpClient = new HttpClient(
-                    new ConnectionString(replicaHost)
-            );
-
             Response response = null;
             try {
-                response = httpClient.get(
+                response = replicasHosts.get(bestResult.getReplicaHost()).get(
                         request.getURI(),
                         headers
                 );

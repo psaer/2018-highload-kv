@@ -1,5 +1,6 @@
 package ru.mail.polis.psaer;
 
+import org.apache.commons.lang3.SerializationUtils;
 import org.jetbrains.annotations.NotNull;
 import ru.mail.polis.KVDao;
 
@@ -39,13 +40,13 @@ public class KVDaoImpl implements KVDao {
 
     @Override
     public void upsert(@NotNull byte[] key, @NotNull byte[] value) throws IOException, DBException {
-        value = serialize(new DaoValue(DaoValue.State.PRESENT, System.currentTimeMillis(), value));
+        value =  SerializationUtils.serialize(new DaoValue(DaoValue.State.PRESENT, System.currentTimeMillis(), value));
         db.put(key, value);
     }
 
     @Override
     public void remove(@NotNull byte[] key) throws IOException, DBException {
-        byte[] value = serialize(new DaoValue(DaoValue.State.REMOVED, System.currentTimeMillis(), new byte[]{}));
+        byte[] value = SerializationUtils.serialize(new DaoValue(DaoValue.State.REMOVED, System.currentTimeMillis(), new byte[]{}));
         db.put(key, value);
     }
 
@@ -71,16 +72,8 @@ public class KVDaoImpl implements KVDao {
     }
 
     public void internalUpsert(@NotNull byte[] key, @NotNull DaoValue daoValue) throws IOException, DBException {
-        byte[] valueToPut = serialize(daoValue);
+        byte[] valueToPut =  SerializationUtils.serialize(daoValue);
         db.put(key, valueToPut);
-    }
-
-    private byte[] serialize(@NotNull Object obj) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        ObjectOutputStream os = new ObjectOutputStream(out);
-        os.writeObject(obj);
-
-        return out.toByteArray();
     }
 
     private Options getOptions() {
